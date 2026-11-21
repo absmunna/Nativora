@@ -1,0 +1,6 @@
+{
+  "name": "Nativora",
+  "description": "Pure organic honey, cold-pressed oils, and artisanal spices — farm-to-table natural groceries.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

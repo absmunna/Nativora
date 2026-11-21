@@ -1,0 +1,10 @@
+# Firebase / Vite
+node_modules/
+dist/
+.env
+.env.*
+!.env.example
+# Note: firebase-applet-config.json holds public client Firebase config for preview
+# Hostinger
+.DS_Store
+*.log

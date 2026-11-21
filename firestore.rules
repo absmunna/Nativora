@@ -1,0 +1,376 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // Pillar 0: Default-deny global catch-all
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // -------------------------------------------------------------------------
+    // Global Hardened Helpers
+    // -------------------------------------------------------------------------
+    function isValidId(id) {
+      return id is string && id.size() >= 1 && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
+    }
+
+    function incoming() {
+      return request.resource.data;
+    }
+
+    function existing() {
+      return resource.data;
+    }
+
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isNonEmptyString(val, minLen, maxLen) {
+      return val is string && val.size() >= minLen && val.size() <= maxLen;
+    }
+
+    function isOptionalString(val, maxLen) {
+      return val is string && val.size() <= maxLen;
+    }
+
+    function isAdmin() {
+      return isSignedIn() && (
+        exists(/databases/$(database)/documents/admins/$(request.auth.uid)) ||
+        (request.auth.token.email == 'nirjonmunna5@gmail.com' && request.auth.token.email_verified == true)
+      );
+    }
+
+    // -------------------------------------------------------------------------
+    // Entity Validation Blueprints
+    // -------------------------------------------------------------------------
+    function isValidProduct(data) {
+      return data.keys().hasAll([
+          'id', 'slug', 'name', 'categoryId', 'categoryName',
+          'imageUrl', 'price', 'unitLabel', 'stock', 'isActive', 'createdAt', 'updatedAt'
+        ])
+        && data.keys().hasOnly([
+          'id', 'slug', 'name', 'categoryId', 'categoryName', 'origin', 'harvestBatch',
+          'shortNote', 'description', 'imageUrl', 'price', 'originalPrice', 'unitLabel',
+          'stock', 'isActive', 'featured', 'rating', 'reviewCount', 'purityHighlights',
+          'createdAt', 'updatedAt'
+        ])
+        && isValidId(data.id)
+        && isNonEmptyString(data.slug, 2, 120) && data.slug.matches('^[a-z0-9-]+$')
+        && isNonEmptyString(data.name, 2, 140)
+        && isValidId(data.categoryId)
+        && isNonEmptyString(data.categoryName, 2, 80)
+        && (!('origin' in data) || isOptionalString(data.origin, 120))
+        && (!('harvestBatch' in data) || isOptionalString(data.harvestBatch, 100))
+        && (!('shortNote' in data) || isOptionalString(data.shortNote, 220))
+        && (!('description' in data) || isOptionalString(data.description, 1600))
+        && isNonEmptyString(data.imageUrl, 1, 500)
+        && data.price is number && data.price >= 1 && data.price <= 1000000
+        && (!('originalPrice' in data) || (data.originalPrice is number && data.originalPrice >= 0 && data.originalPrice <= 1000000))
+        && isNonEmptyString(data.unitLabel, 1, 60)
+        && data.stock is number && data.stock >= 0 && data.stock <= 1000000
+        && data.isActive is bool
+        && (!('featured' in data) || data.featured is bool)
+        && (!('rating' in data) || (data.rating is number && data.rating >= 0 && data.rating <= 5))
+        && (!('reviewCount' in data) || (data.reviewCount is number && data.reviewCount >= 0))
+        && (!('purityHighlights' in data) || (
+          data.purityHighlights is list &&
+          data.purityHighlights.size() <= 6 &&
+          (data.purityHighlights.size() == 0 || (data.purityHighlights[0] is string && data.purityHighlights[0].size() <= 200))
+        ))
+        && data.createdAt is timestamp
+        && data.updatedAt is timestamp;
+    }
+
+    function isValidCategory(data) {
+      return data.keys().hasAll([
+          'id', 'slug', 'name', 'imageUrl', 'sortOrder', 'isActive', 'createdAt', 'updatedAt'
+        ])
+        && data.keys().hasOnly([
+          'id', 'slug', 'name', 'description', 'imageUrl', 'sortOrder', 'isActive', 'createdAt', 'updatedAt'
+        ])
+        && isValidId(data.id)
+        && isNonEmptyString(data.slug, 2, 100) && data.slug.matches('^[a-z0-9-]+$')
+        && isNonEmptyString(data.name, 2, 80)
+        && (!('description' in data) || isOptionalString(data.description, 300))
+        && isNonEmptyString(data.imageUrl, 1, 500)
+        && data.sortOrder is number && data.sortOrder >= 0 && data.sortOrder <= 999
+        && data.isActive is bool
+        && data.createdAt is timestamp
+        && data.updatedAt is timestamp;
+    }
+
+    function isValidCustomer(data) {
+      return data.keys().hasAll([
+          'uid', 'name', 'phone', 'address', 'zone', 'isAnonymous', 'createdAt', 'updatedAt'
+        ])
+        && data.keys().hasOnly([
+          'uid', 'name', 'phone', 'email', 'address', 'zone', 'isAnonymous', 'createdAt', 'updatedAt'
+        ])
+        && isValidId(data.uid)
+        && isNonEmptyString(data.name, 2, 120)
+        && isNonEmptyString(data.phone, 7, 20) && data.phone.matches('^[0-9+\\-\\s]{7,20}$')
+        && (!('email' in data) || isOptionalString(data.email, 140))
+        && isNonEmptyString(data.address, 5, 300)
+        && data.zone in ['Inside Dhaka', 'Dhaka Suburbs', 'Outside Dhaka']
+        && data.isAnonymous is bool
+        && data.createdAt is timestamp
+        && data.updatedAt is timestamp;
+    }
+
+    function isValidOrder(data) {
+      return data.keys().hasAll([
+          'orderCode', 'customerUid', 'customerName', 'customerPhone', 'customerAddress',
+          'deliveryZone', 'paymentMethod', 'status', 'pricingVerified',
+          'verifiedSubtotal', 'verifiedDeliveryFee', 'verifiedTotal', 'stockDeducted',
+          'source', 'items', 'createdAt', 'updatedAt'
+        ])
+        && data.keys().hasOnly([
+          'orderCode', 'customerUid', 'customerName', 'customerPhone', 'customerEmail',
+          'customerAddress', 'deliveryZone', 'paymentMethod', 'status', 'pricingVerified',
+          'verifiedSubtotal', 'verifiedDeliveryFee', 'verifiedTotal', 'stockDeducted',
+          'verifiedByUid', 'source', 'campaignSlug', 'notes', 'items', 'createdAt', 'updatedAt'
+        ])
+        && isNonEmptyString(data.orderCode, 4, 24)
+        && isValidId(data.customerUid)
+        && isNonEmptyString(data.customerName, 2, 120)
+        && isNonEmptyString(data.customerPhone, 7, 20) && data.customerPhone.matches('^[0-9+\\-\\s]{7,20}$')
+        && (!('customerEmail' in data) || isOptionalString(data.customerEmail, 140))
+        && isNonEmptyString(data.customerAddress, 5, 300)
+        && data.deliveryZone in ['Inside Dhaka', 'Dhaka Suburbs', 'Outside Dhaka']
+        && data.paymentMethod == 'COD'
+        && data.status in ['pending_verification', 'confirmed', 'dispatched', 'delivered', 'cancelled']
+        && data.pricingVerified is bool
+        && data.verifiedSubtotal is number && data.verifiedSubtotal >= 0 && data.verifiedSubtotal <= 10000000
+        && data.verifiedDeliveryFee is number && data.verifiedDeliveryFee >= 0 && data.verifiedDeliveryFee <= 5000
+        && data.verifiedTotal is number && data.verifiedTotal >= 0 && data.verifiedTotal <= 10000000
+        && data.stockDeducted is bool
+        && (!('verifiedByUid' in data) || isOptionalString(data.verifiedByUid, 128))
+        && data.source in ['storefront', 'facebook_landing']
+        && (!('campaignSlug' in data) || isOptionalString(data.campaignSlug, 120))
+        && (!('notes' in data) || isOptionalString(data.notes, 400))
+        && data.items is list && data.items.size() >= 1 && data.items.size() <= 20
+        && data.items[0] is map
+        && isValidId(data.items[0].productId)
+        && isNonEmptyString(data.items[0].productName, 1, 140)
+        && isNonEmptyString(data.items[0].unitLabel, 1, 60)
+        && data.items[0].quantity is number && data.items[0].quantity >= 1 && data.items[0].quantity <= 50
+        && data.createdAt is timestamp
+        && data.updatedAt is timestamp;
+    }
+
+    function isValidBanner(data) {
+      return data.keys().hasAll([
+          'id', 'title', 'imageUrl', 'isActive', 'sortOrder', 'createdAt', 'updatedAt'
+        ])
+        && data.keys().hasOnly([
+          'id', 'title', 'subtitle', 'imageUrl', 'ctaLabel', 'targetSlug',
+          'isActive', 'sortOrder', 'createdAt', 'updatedAt'
+        ])
+        && isValidId(data.id)
+        && isNonEmptyString(data.title, 2, 140)
+        && (!('subtitle' in data) || isOptionalString(data.subtitle, 280))
+        && isNonEmptyString(data.imageUrl, 1, 500)
+        && (!('ctaLabel' in data) || isOptionalString(data.ctaLabel, 50))
+        && (!('targetSlug' in data) || isOptionalString(data.targetSlug, 120))
+        && data.isActive is bool
+        && data.sortOrder is number && data.sortOrder >= 0 && data.sortOrder <= 999
+        && data.createdAt is timestamp
+        && data.updatedAt is timestamp;
+    }
+
+    function isValidSettings(data) {
+      return data.keys().hasAll([
+          'id', 'storeName', 'insideDhakaFee', 'suburbDhakaFee', 'outsideDhakaFee',
+          'freeDeliveryThreshold', 'updatedAt'
+        ])
+        && data.keys().hasOnly([
+          'id', 'storeName', 'tagline', 'hotline', 'supportEmail',
+          'insideDhakaFee', 'suburbDhakaFee', 'outsideDhakaFee',
+          'freeDeliveryThreshold', 'promoNotice', 'updatedAt'
+        ])
+        && isValidId(data.id)
+        && isNonEmptyString(data.storeName, 2, 80)
+        && (!('tagline' in data) || isOptionalString(data.tagline, 180))
+        && (!('hotline' in data) || isOptionalString(data.hotline, 30))
+        && (!('supportEmail' in data) || isOptionalString(data.supportEmail, 140))
+        && data.insideDhakaFee is number && data.insideDhakaFee >= 0 && data.insideDhakaFee <= 2000
+        && data.suburbDhakaFee is number && data.suburbDhakaFee >= 0 && data.suburbDhakaFee <= 2000
+        && data.outsideDhakaFee is number && data.outsideDhakaFee >= 0 && data.outsideDhakaFee <= 2000
+        && data.freeDeliveryThreshold is number && data.freeDeliveryThreshold >= 0 && data.freeDeliveryThreshold <= 100000
+        && (!('promoNotice' in data) || isOptionalString(data.promoNotice, 180))
+        && data.updatedAt is timestamp;
+    }
+
+    function isValidReview(data) {
+      return data.keys().hasAll([
+          'id', 'productId', 'authorUid', 'reviewerName', 'rating', 'comment', 'createdAt', 'updatedAt'
+        ])
+        && data.keys().hasOnly([
+          'id', 'productId', 'authorUid', 'reviewerName', 'rating', 'comment', 'createdAt', 'updatedAt'
+        ])
+        && isValidId(data.id)
+        && isValidId(data.productId)
+        && isValidId(data.authorUid)
+        && isNonEmptyString(data.reviewerName, 2, 80)
+        && data.rating is int && data.rating >= 1 && data.rating <= 5
+        && isNonEmptyString(data.comment, 3, 600)
+        && data.createdAt is timestamp
+        && data.updatedAt is timestamp;
+    }
+
+    // -------------------------------------------------------------------------
+    // Collection Match Rules
+    // -------------------------------------------------------------------------
+
+    // Startup connection check document
+    match /test/connection {
+      allow get: if true;
+    }
+
+    // Admin registry (read own UID record or by verified admin; writes only in Firebase Console)
+    match /admins/{adminUid} {
+      allow get: if isSignedIn() && isValidId(adminUid) && (request.auth.uid == adminUid || isAdmin());
+      allow list, create, update, delete: if false;
+    }
+
+    // Public catalog products; only Admin may create, update, or deduct stock
+    match /products/{productId} {
+      allow get: if isValidId(productId);
+      allow list: if true;
+      allow create: if isAdmin() && isValidId(productId) && isValidProduct(incoming())
+        && incoming().id == productId
+        && incoming().createdAt == request.time
+        && incoming().updatedAt == request.time;
+      allow update: if isAdmin() && isValidId(productId) && isValidProduct(incoming())
+        && incoming().id == existing().id
+        && incoming().createdAt == existing().createdAt
+        && incoming().updatedAt == request.time;
+      allow delete: if isAdmin() && isValidId(productId);
+    }
+
+    // Public categories; Admin-managed
+    match /categories/{categoryId} {
+      allow get: if isValidId(categoryId);
+      allow list: if true;
+      allow create: if isAdmin() && isValidId(categoryId) && isValidCategory(incoming())
+        && incoming().id == categoryId
+        && incoming().createdAt == request.time
+        && incoming().updatedAt == request.time;
+      allow update: if isAdmin() && isValidId(categoryId) && isValidCategory(incoming())
+        && incoming().id == existing().id
+        && incoming().createdAt == existing().createdAt
+        && incoming().updatedAt == request.time;
+      allow delete: if isAdmin() && isValidId(categoryId);
+    }
+
+    // Private customer PII keyed strictly by Firebase UID
+    match /customers/{customerUid} {
+      allow get: if isSignedIn() && isValidId(customerUid) && (request.auth.uid == customerUid || isAdmin());
+      allow list: if isAdmin();
+      allow create: if isSignedIn() && isValidId(customerUid) && request.auth.uid == customerUid
+        && isValidCustomer(incoming())
+        && incoming().uid == request.auth.uid
+        && incoming().createdAt == request.time
+        && incoming().updatedAt == request.time;
+      allow update: if isSignedIn() && isValidId(customerUid) && isValidCustomer(incoming())
+        && incoming().uid == existing().uid
+        && incoming().createdAt == existing().createdAt
+        && incoming().updatedAt == request.time
+        && (
+          isAdmin() ||
+          (
+            request.auth.uid == customerUid &&
+            incoming().diff(existing()).affectedKeys().hasOnly(['name', 'phone', 'email', 'address', 'zone', 'updatedAt'])
+          )
+        );
+      allow delete: if isAdmin() && isValidId(customerUid);
+    }
+
+    // Orders: Customers create pending COD requests with zero verified totals; Admin verifies & confirms
+    match /orders/{orderId} {
+      allow get: if isSignedIn() && isValidId(orderId) && (existing().customerUid == request.auth.uid || isAdmin());
+      allow list: if isSignedIn() && (resource.data.customerUid == request.auth.uid || isAdmin());
+      allow create: if isSignedIn() && isValidId(orderId) && isValidOrder(incoming())
+        && incoming().customerUid == request.auth.uid
+        && incoming().status == 'pending_verification'
+        && incoming().paymentMethod == 'COD'
+        && incoming().pricingVerified == false
+        && incoming().stockDeducted == false
+        && incoming().verifiedSubtotal == 0
+        && incoming().verifiedDeliveryFee == 0
+        && incoming().verifiedTotal == 0
+        && incoming().createdAt == request.time
+        && incoming().updatedAt == request.time;
+      allow update: if isSignedIn() && isValidId(orderId) && isValidOrder(incoming())
+        && incoming().orderCode == existing().orderCode
+        && incoming().customerUid == existing().customerUid
+        && incoming().createdAt == existing().createdAt
+        && incoming().updatedAt == request.time
+        && (
+          isAdmin() ||
+          (
+            existing().customerUid == request.auth.uid &&
+            existing().status == 'pending_verification' &&
+            incoming().status == 'cancelled' &&
+            incoming().diff(existing()).affectedKeys().hasOnly(['status', 'updatedAt'])
+          )
+        );
+      allow delete: if isAdmin() && isValidId(orderId);
+    }
+
+    // Storefront banners; Admin-managed
+    match /banners/{bannerId} {
+      allow get: if isValidId(bannerId);
+      allow list: if true;
+      allow create: if isAdmin() && isValidId(bannerId) && isValidBanner(incoming())
+        && incoming().id == bannerId
+        && incoming().createdAt == request.time
+        && incoming().updatedAt == request.time;
+      allow update: if isAdmin() && isValidId(bannerId) && isValidBanner(incoming())
+        && incoming().id == existing().id
+        && incoming().createdAt == existing().createdAt
+        && incoming().updatedAt == request.time;
+      allow delete: if isAdmin() && isValidId(bannerId);
+    }
+
+    // Storefront settings; Admin-managed
+    match /settings/{settingId} {
+      allow get: if isValidId(settingId);
+      allow list: if true;
+      allow create: if isAdmin() && isValidId(settingId) && isValidSettings(incoming())
+        && incoming().id == settingId
+        && incoming().updatedAt == request.time;
+      allow update: if isAdmin() && isValidId(settingId) && isValidSettings(incoming())
+        && incoming().id == existing().id
+        && incoming().updatedAt == request.time;
+      allow delete: if isAdmin() && isValidId(settingId);
+    }
+
+    // Public customer product reviews (no PII stored; authorUid verified on write)
+    match /reviews/{reviewId} {
+      allow get: if isValidId(reviewId);
+      allow list: if true;
+      allow create: if isSignedIn() && isValidId(reviewId) && isValidReview(incoming())
+        && incoming().id == reviewId
+        && incoming().authorUid == request.auth.uid
+        && incoming().createdAt == request.time
+        && incoming().updatedAt == request.time;
+      allow update: if isSignedIn() && isValidId(reviewId) && isValidReview(incoming())
+        && incoming().id == existing().id
+        && incoming().productId == existing().productId
+        && incoming().authorUid == existing().authorUid
+        && incoming().createdAt == existing().createdAt
+        && incoming().updatedAt == request.time
+        && (
+          isAdmin() ||
+          (
+            existing().authorUid == request.auth.uid &&
+            incoming().diff(existing()).affectedKeys().hasOnly(['reviewerName', 'rating', 'comment', 'updatedAt'])
+          )
+        );
+      allow delete: if isSignedIn() && isValidId(reviewId)
+        && (existing().authorUid == request.auth.uid || isAdmin());
+    }
+  }
+}

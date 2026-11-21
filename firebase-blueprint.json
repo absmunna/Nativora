@@ -1,0 +1,220 @@
+{
+  "entities": {
+    "Product": {
+      "title": "Product",
+      "description": "An artisanal organic food product sold on Nativora.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "slug": { "type": "string", "maxLength": 120, "pattern": "^[a-z0-9-]+$" },
+        "name": { "type": "string", "maxLength": 140 },
+        "categoryId": { "type": "string", "maxLength": 128 },
+        "categoryName": { "type": "string", "maxLength": 80 },
+        "origin": { "type": "string", "maxLength": 120 },
+        "harvestBatch": { "type": "string", "maxLength": 100 },
+        "shortNote": { "type": "string", "maxLength": 220 },
+        "description": { "type": "string", "maxLength": 1600 },
+        "imageUrl": { "type": "string", "maxLength": 500 },
+        "price": { "type": "number" },
+        "originalPrice": { "type": "number" },
+        "unitLabel": { "type": "string", "maxLength": 60 },
+        "stock": { "type": "number" },
+        "isActive": { "type": "boolean" },
+        "featured": { "type": "boolean" },
+        "rating": { "type": "number" },
+        "reviewCount": { "type": "number" },
+        "purityHighlights": { "type": "array" },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["id", "slug", "name", "categoryId", "categoryName", "imageUrl", "price", "unitLabel", "stock", "isActive", "createdAt", "updatedAt"]
+    },
+    "Category": {
+      "title": "Category",
+      "description": "Product category for organizing the storefront catalog.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "slug": { "type": "string", "maxLength": 100, "pattern": "^[a-z0-9-]+$" },
+        "name": { "type": "string", "maxLength": 80 },
+        "description": { "type": "string", "maxLength": 300 },
+        "imageUrl": { "type": "string", "maxLength": 500 },
+        "sortOrder": { "type": "number" },
+        "isActive": { "type": "boolean" },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["id", "slug", "name", "imageUrl", "sortOrder", "isActive", "createdAt", "updatedAt"]
+    },
+    "Customer": {
+      "title": "Customer",
+      "description": "Private customer profile keyed strictly by Firebase Auth UID.",
+      "type": "object",
+      "properties": {
+        "uid": { "type": "string", "maxLength": 128 },
+        "name": { "type": "string", "maxLength": 120 },
+        "phone": { "type": "string", "maxLength": 20, "pattern": "^[0-9+\\-\\s]{7,20}$" },
+        "email": { "type": "string", "maxLength": 140 },
+        "address": { "type": "string", "maxLength": 300 },
+        "zone": { "type": "string", "enum": ["Inside Dhaka", "Dhaka Suburbs", "Outside Dhaka"] },
+        "isAnonymous": { "type": "boolean" },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["uid", "name", "phone", "address", "zone", "isAnonymous", "createdAt", "updatedAt"]
+    },
+    "Order": {
+      "title": "Order",
+      "description": "Cash on Delivery pending order request verified and confirmed by admin.",
+      "type": "object",
+      "properties": {
+        "orderCode": { "type": "string", "maxLength": 24 },
+        "customerUid": { "type": "string", "maxLength": 128 },
+        "customerName": { "type": "string", "maxLength": 120 },
+        "customerPhone": { "type": "string", "maxLength": 20, "pattern": "^[0-9+\\-\\s]{7,20}$" },
+        "customerEmail": { "type": "string", "maxLength": 140 },
+        "customerAddress": { "type": "string", "maxLength": 300 },
+        "deliveryZone": { "type": "string", "enum": ["Inside Dhaka", "Dhaka Suburbs", "Outside Dhaka"] },
+        "paymentMethod": { "type": "string", "enum": ["COD"] },
+        "status": { "type": "string", "enum": ["pending_verification", "confirmed", "dispatched", "delivered", "cancelled"] },
+        "pricingVerified": { "type": "boolean" },
+        "verifiedSubtotal": { "type": "number" },
+        "verifiedDeliveryFee": { "type": "number" },
+        "verifiedTotal": { "type": "number" },
+        "stockDeducted": { "type": "boolean" },
+        "source": { "type": "string", "enum": ["storefront", "facebook_landing"] },
+        "campaignSlug": { "type": "string", "maxLength": 120 },
+        "notes": { "type": "string", "maxLength": 400 },
+        "items": { "type": "array" },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": [
+        "orderCode",
+        "customerUid",
+        "customerName",
+        "customerPhone",
+        "customerAddress",
+        "deliveryZone",
+        "paymentMethod",
+        "status",
+        "pricingVerified",
+        "verifiedSubtotal",
+        "verifiedDeliveryFee",
+        "verifiedTotal",
+        "stockDeducted",
+        "source",
+        "items",
+        "createdAt",
+        "updatedAt"
+      ]
+    },
+    "Banner": {
+      "title": "Banner",
+      "description": "Promotional storefront banner referencing Hostinger public image paths or URLs.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "maxLength": 128 },
+        "title": { "type": "string", "maxLength": 140 },
+        "subtitle": { "type": "string", "maxLength": 280 },
+        "imageUrl": { "type": "string", "maxLength": 500 },
+        "ctaLabel": { "type": "string", "maxLength": 50 },
+        "targetSlug": { "type": "string", "maxLength": 120 },
+        "isActive": { "type": "boolean" },
+        "sortOrder": { "type": "number" },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["id", "title", "imageUrl", "isActive", "sortOrder", "createdAt", "updatedAt"]
+    },
+    "Settings": {
+      "title": "Settings",
+      "description": "Global storefront settings and COD delivery rates.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "maxLength": 64 },
+        "storeName": { "type": "string", "maxLength": 80 },
+        "tagline": { "type": "string", "maxLength": 180 },
+        "hotline": { "type": "string", "maxLength": 30 },
+        "supportEmail": { "type": "string", "maxLength": 140 },
+        "insideDhakaFee": { "type": "number" },
+        "suburbDhakaFee": { "type": "number" },
+        "outsideDhakaFee": { "type": "number" },
+        "freeDeliveryThreshold": { "type": "number" },
+        "promoNotice": { "type": "string", "maxLength": 180 },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": [
+        "id",
+        "storeName",
+        "insideDhakaFee",
+        "suburbDhakaFee",
+        "outsideDhakaFee",
+        "freeDeliveryThreshold",
+        "updatedAt"
+      ]
+    },
+    "AdminRecord": {
+      "title": "AdminRecord",
+      "description": "Authorized admin UID registry.",
+      "type": "object",
+      "properties": {
+        "uid": { "type": "string", "maxLength": 128 },
+        "email": { "type": "string", "maxLength": 140 },
+        "role": { "type": "string", "enum": ["admin"] },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["uid", "role", "createdAt"]
+    },
+    "Review": {
+      "title": "Review",
+      "description": "Customer star rating and written review for a Nativora product.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "productId": { "type": "string", "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "authorUid": { "type": "string", "maxLength": 128, "pattern": "^[a-zA-Z0-9_\\-]+$" },
+        "reviewerName": { "type": "string", "minLength": 2, "maxLength": 80 },
+        "rating": { "type": "number" },
+        "comment": { "type": "string", "minLength": 3, "maxLength": 600 },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["id", "productId", "authorUid", "reviewerName", "rating", "comment", "createdAt", "updatedAt"]
+    }
+  },
+  "firestore": {
+    "/products/{productId}": {
+      "schema": { "$ref": "#/entities/Product" },
+      "description": "Catalog of Nativora products."
+    },
+    "/categories/{categoryId}": {
+      "schema": { "$ref": "#/entities/Category" },
+      "description": "Product categories."
+    },
+    "/customers/{customerUid}": {
+      "schema": { "$ref": "#/entities/Customer" },
+      "description": "Private customer records keyed by Firebase Auth UID."
+    },
+    "/orders/{orderId}": {
+      "schema": { "$ref": "#/entities/Order" },
+      "description": "Cash on Delivery pending order requests and admin-verified orders."
+    },
+    "/banners/{bannerId}": {
+      "schema": { "$ref": "#/entities/Banner" },
+      "description": "Storefront hero and campaign banners."
+    },
+    "/settings/{settingId}": {
+      "schema": { "$ref": "#/entities/Settings" },
+      "description": "Store configuration and delivery fees."
+    },
+    "/admins/{adminUid}": {
+      "schema": { "$ref": "#/entities/AdminRecord" },
+      "description": "Admin UID allowlist documents."
+    },
+    "/reviews/{reviewId}": {
+      "schema": { "$ref": "#/entities/Review" },
+      "description": "Public customer star ratings and reviews linked to products."
+    }
+  }
+}
